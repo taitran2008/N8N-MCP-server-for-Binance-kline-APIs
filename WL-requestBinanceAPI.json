@@ -1,0 +1,106 @@
+{
+  "name": "WL-requestBinanceAPI",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"symbol\": \"BTCUSDT\",\n  \"interval\": \"1d\",\n  \"startTime\": 1640908800000,\n  \"endTime\": 1735776000000,\n  \"limit\" : 1000\n}"
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        272,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/*\n  n8n Code node script for converting a table-like structure \n  (array of objects with numeric keys) into a clean array of K-Line/OHLC objects.\n  It handles timestamp conversion and trimming decimal zeros.\n*/\n\n// Define the output structure keys for clarity\nconst [\n  KEY_OPEN_TIME, \n  KEY_OPEN_PRICE, \n  KEY_HIGH_PRICE, \n  KEY_LOW_PRICE, \n  KEY_CLOSE_PRICE, \n  KEY_VOLUME\n] = ['openTime_UTC', 'openPrice_USDT', 'highPrice_USDT', 'lowPrice_USDT', 'closePrice_USDT', 'volume'];\n\n// The final output array of transformed objects\nconst outputItems = [];\n\n// Loop through each item (row) passed from the previous node\nfor (const item of $input.all()) {\n  const row = item.json;\n\n  // 1. Get the raw values for the first 6 columns (index 0 to 5)\n  // Assuming the keys are strings '0', '1', '2', etc., as is common for HTTP node output\n  const rawOpenTime = row['0'];\n  const rawOpenPrice = row['1'];\n  const rawHighPrice = row['2'];\n  const rawLowPrice = row['3'];\n  const rawClosePrice = row['4'];\n  const rawVolume = row['5'];\n\n  // --- Data Transformation ---\n\n  // 2. Open Time (Timestamp to YYYY-MM-DDTHH:MM:SS UTC)\n  let openTime;\n  if (rawOpenTime) {\n    // rawOpenTime is in milliseconds (e.g., 1756944000000)\n    // new Date() creates a date object, then .toISOString() converts it to \n    // \"YYYY-MM-DDTHH:MM:SS.sssZ\". We slice the last 5 characters to get the \n    // desired \"%Y-%m-%dT%H:%M:%S\" format in UTC.\n    try {\n      openTime = new Date(Number(rawOpenTime)).toISOString().slice(0, 19);\n    } catch (e) {\n      console.error(`Error converting timestamp ${rawOpenTime}: ${e.message}`);\n      openTime = null; // Set to null on error\n    }\n  } else {\n    openTime = null;\n  }\n\n  // 3. Other Columns (Remove trailing zeros and convert to number)\n  // parseFloat is used to convert the string and automatically handle \n  // removing trailing zeros (e.g., \"111705.72000000\" -> 111705.72)\n  const openPrice = rawOpenPrice ? parseFloat(rawOpenPrice) : null;\n  const highPrice = rawHighPrice ? parseFloat(rawHighPrice) : null;\n  const lowPrice = rawLowPrice ? parseFloat(rawLowPrice) : null;\n  const closePrice = rawClosePrice ? parseFloat(rawClosePrice) : null;\n  const volume = rawVolume ? parseFloat(rawVolume) : null;\n  \n  // 4. Create the new structured object\n  const transformedObject = {\n    [KEY_OPEN_TIME]: openTime,\n    [KEY_OPEN_PRICE]: openPrice,\n    [KEY_HIGH_PRICE]: highPrice,\n    [KEY_LOW_PRICE]: lowPrice,\n    [KEY_CLOSE_PRICE]: closePrice,\n    [KEY_VOLUME]: volume,\n    // You can keep the original item data if needed (optional)\n    // originalData: row\n  };\n  \n  // 5. Add the new object to the output\n  // We use $return.item.clone(transformedObject) to create a new n8n item\n  // with only the transformed object in its 'json' property.\n  outputItems.push({ json: transformedObject });\n}\n\n// Return the newly created items\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        352
+      ],
+      "id": "c2cfb845-ac19-4145-9406-ec4595f6fcd0",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "url": "https://api.binance.com/api/v3/klines",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "={{ $json.symbol }}"
+            },
+            {
+              "name": "interval",
+              "value": "={{ $json.interval }}"
+            },
+            {
+              "name": "startTime",
+              "value": "={{ $json.startTime }}"
+            },
+            {
+              "name": "endTime",
+              "value": "={{ $json.endTime }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.limit }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        544,
+        352
+      ],
+      "id": "235f5fe6-bc71-47ce-b8d2-9fcfb33af331",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8a351dee-cd55-4b47-ad3b-2d5cd0d3bbd2",
+  "meta": {
+    "instanceId": "d32f4f62648a18e310509e0dc150b56a3c56d12b9f692009dc2472de51ce9edb"
+  },
+  "id": "5OYIIAfhOZKCtBBZ",
+  "tags": []
+}
