@@ -7,3 +7,5 @@ n8n workflow for fetching and transforming Binance candlestick (kline) market da
 
 ![Workflow Overview](./image1.png)  
 ![Data Transformation Sample](./image2.png)
+![Sample Usge](./image3.png)
+
